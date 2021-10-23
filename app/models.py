@@ -37,12 +37,13 @@ class Resource(Base):
     environment_id = Column(ForeignKey('environment.id'), nullable=False)
     resource_type_id = Column(ForeignKey('resource_type.id'), nullable=False)
     name = Column(String(250))
-    idv4 = Column(String(250))
+    ipv4 = Column(String(250))
     ipv6 = Column(String(250))
     console_username = Column(String(250))
     console_secret_id = Column(String(250))
     port = Column(Integer)
     protocol = Column(String(250))
-
+    active = Column(SmallInteger, nullable=False, server_default=text("0"))
+    
     environment = relationship('Environment')
     resource_type = relationship('ResourceType')

@@ -8,11 +8,10 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from models import Environment, Resource, ResourceType
 from dependencies import get_token_header
-import uuid
 from datetime import datetime
 from exceptions import username_already_exists
 from sqlalchemy import over
-from sqlalchemy import engine_from_config, and_, func, literal_column
+from sqlalchemy import engine_from_config, and_, func, literal_column, case
 from sqlalchemy_filters import apply_pagination
 import time
 import os
@@ -68,6 +67,8 @@ def create(details: CreateEnvironment, commons: dict = Depends(common_params), d
 def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, commons: dict = Depends(common_params), db: Session = Depends(get_db), id: Optional[str] = None, name: Optional[str] = None, group: Optional[str] = None, status: Optional[bool] = None):
     filters = []
 
+    filters.append(Environment.deleted==0)
+
     if(name):
         filters.append(Environment.name.ilike(name+'%'))
 
@@ -77,14 +78,14 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
     if(status==True):
         filters.append(Environment.active==1)
     
-    if(status==False):
-        filters.append(Environment.active==0)
+    # if(status==False):
+    #     filters.append(Environment.active==0)
 
     query = db.query(
         over(func.row_number(), order_by='name').label('index'),
         Environment.id,
         Environment.name,
-        Environment.active,
+        case((Environment.active == 1, 'Yes'), (Environment.active == 0, 'No')).label('active'),
         Environment.scan_start_time,
         Environment.scan_terminate_time
     )
@@ -106,7 +107,9 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
 @router.delete("/{id}")
 def delete_by_id(id: str, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
     env = db.query(Environment).get(id.strip())
-    db.delete(env)
+    env.deleted = 1
+    # db.delete(env)
+    db.add(env)
     db.commit()
     return Response(status_code=204)
 

@@ -11,3 +11,16 @@ class CreateEnvironment(BaseModel):
     scan_terminate_time: time
     group: str
     active: bool
+
+class CreateResource(BaseModel):
+    id: Optional[str]
+    environment: str
+    resource_type: str
+    ipv4: str
+    ipv6: str
+    console_username: str
+    password: str
+    port: int
+    protocol: str
+    name: str
+    active: bool
