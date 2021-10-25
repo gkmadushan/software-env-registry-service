@@ -95,7 +95,7 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
     response = {
         "data": query.all(),
         "meta":{
-            "totalRecords": pagination.total_results,
+            "total_records": pagination.total_results,
             "limit": pagination.page_size,
             "num_pages": pagination.num_pages,
             "current_page": pagination.page_number
