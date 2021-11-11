@@ -94,7 +94,7 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
     query = db.query(
         over(func.row_number(), order_by=Resource.name).label('index'),
         Resource.id,
-        Resource.name,
+        func.concat(Resource.name, ' (', Resource.ipv4,')').label('name'),
         case((Resource.active == 1, 'Yes'), (Resource.active == 0, 'No')).label('active'),
         Resource.ipv4,
         Resource.ipv6,
