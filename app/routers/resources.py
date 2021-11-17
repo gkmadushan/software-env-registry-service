@@ -1,3 +1,4 @@
+from io import StringIO
 from sqlalchemy.sql.sqltypes import DateTime
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import Response
@@ -9,7 +10,7 @@ from typing import Optional
 from models import Environment, Resource, ResourceType
 from dependencies import get_token_header
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from exceptions import username_already_exists
 from sqlalchemy import over
 from sqlalchemy import engine_from_config, and_, func, literal_column, case
@@ -18,8 +19,19 @@ import time
 import os
 import uuid
 from sqlalchemy.dialects import postgresql
+import paramiko
+from io import StringIO
+import socket
+import requests
+import base64
+import json
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+import subprocess
+
 
 page_size = os.getenv('PAGE_SIZE')
+CREDENTIAL_SERVICE_URL = os.getenv('CREDENTIAL_SERVICE_URL')
 
 
 router = APIRouter(
@@ -29,10 +41,54 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+@router.post("/connection-test")
+def test(details: CreateResource):
+    client = paramiko.SSHClient()
+    response = {}
+    try:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(details.ipv4,username=details.console_username, password=details.password, port=details.port)        
+    except (socket.error, paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return Response(status_code=204)
+
+
 @router.post("")
 def create(details: CreateResource, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
-    #generate token
+    supported_protocols = {'ssh':'SSH', 'SSH':'SSH'}
+
+    protocol = supported_protocols.get(details.protocol, 'SSH')
+
     id = details.id or uuid.uuid4().hex
+    key_iostring = StringIO()
+    client = paramiko.SSHClient()
+
+    try:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(details.ipv4, username=details.console_username, password=details.password, port=details.port)        
+    except (socket.error, paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException) as e:
+        raise HTTPException(status_code=422, detail=str(e))    
+    
+    try:
+        key = paramiko.RSAKey.generate(2048)
+        key.write_private_key(key_iostring)
+        
+        data = {
+            "resource": id, 
+            "encrypted_key": key_iostring.getvalue(), 
+            "public_key": "ssh-rsa "+key.get_base64(), 
+            "expire_at":str(datetime.now()+timedelta(90)), 
+            "active": True
+        }
+
+        stdin,stdout,stderr=client.exec_command(f"echo 'ssh-rsa {key.get_base64()}' >> ~/.ssh/authorized_keys")
+       
+        response = requests.post(CREDENTIAL_SERVICE_URL+'/v1/credentials', data=json.dumps(data), headers={"Content-Type":"application/json"})
+        secret_id = json.loads(response.text)['id']
+
+    except BaseException as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     if details.active == True:
         active = 1
@@ -52,9 +108,9 @@ def create(details: CreateResource, commons: dict = Depends(common_params), db: 
         ipv4=details.ipv4,
         ipv6=details.ipv6,
         console_username=details.console_username,
-        console_secret_id=details.password, #put the secret id here from the hashivault
+        console_secret_id=secret_id,
         port=details.port,
-        protocol=details.protocol
+        protocol=protocol
     )    
 
     #commiting data to db
@@ -64,9 +120,7 @@ def create(details: CreateResource, commons: dict = Depends(common_params), db: 
     except IntegrityError as err:
         db.rollback()
         raise HTTPException(status_code=422, detail="Unable to create new environment")
-    return {
-        "success": True
-    }
+    return Response(status_code=204)
 
 @router.get("")
 def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, commons: dict = Depends(common_params), db: Session = Depends(get_db), id: Optional[str] = None, name: Optional[str] = None, environment: Optional[str] = None, status: Optional[bool] = None, ipv4: Optional[str] = None, ipv6: Optional[str] = None, resource_type: Optional[str] = None):
