@@ -24,3 +24,11 @@ class CreateResource(BaseModel):
     protocol: str
     name: str
     active: bool
+
+class TestResource(BaseModel):    
+    ipv4: Optional[str]
+    ipv6: Optional[str]
+    console_username: str
+    password: str
+    port: int
+    protocol: str

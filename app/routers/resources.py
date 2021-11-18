@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette.responses import Response
 from fastapi import APIRouter, Depends, HTTPException, Request
 from dependencies import common_params, get_db, get_secret_random
-from schemas import CreateEnvironment, CreateResource
+from schemas import CreateEnvironment, CreateResource, TestResource
 from sqlalchemy.orm import Session
 from typing import Optional
 from models import Environment, Resource, ResourceType
@@ -42,7 +42,7 @@ router = APIRouter(
 )
 
 @router.post("/connection-test")
-def test(details: CreateResource):
+def test(details: TestResource):
     client = paramiko.SSHClient()
     response = {}
     try:
