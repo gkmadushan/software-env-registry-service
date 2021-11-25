@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import environments, resources
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer 
 
 app = FastAPI(debug=True)
 

@@ -14,8 +14,6 @@ class Environment(Base):
     name = Column(String(250))
     description = Column(String(500))
     deleted = Column(SmallInteger)
-    scan_start_time = Column(TIME(precision=6))
-    scan_terminate_time = Column(TIME(precision=6))
     group_id = Column(UUID, nullable=False)
     created_by = Column(UUID)
     deleted_by = Column(UUID)
@@ -44,6 +42,15 @@ class Resource(Base):
     port = Column(Integer)
     protocol = Column(String(250))
     active = Column(SmallInteger, nullable=False, server_default=text("0"))
+    os = Column(ForeignKey('os.os'))
     
     environment = relationship('Environment')
     resource_type = relationship('ResourceType')
+    o = relationship('O')
+
+class O(Base):
+    __tablename__ = 'os'
+
+    os = Column(String(250), primary_key=True)
+    family = Column(String(250), nullable=False)
+

@@ -46,8 +46,6 @@ def create(details: CreateEnvironment, commons: dict = Depends(common_params), d
         name=details.name,
         description=details.description,
         deleted=deleted,
-        scan_start_time=details.scan_start_time,
-        scan_terminate_time=details.scan_terminate_time,
         group_id=details.group,
         active=active
     )    
@@ -85,9 +83,7 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
         over(func.row_number(), order_by='name').label('index'),
         Environment.id,
         Environment.name,
-        case((Environment.active == 1, 'Yes'), (Environment.active == 0, 'No')).label('active'),
-        Environment.scan_start_time,
-        Environment.scan_terminate_time
+        case((Environment.active == 1, 'Yes'), (Environment.active == 0, 'No')).label('active')
     )
 
     query, pagination = apply_pagination(query.where(and_(*filters)).order_by(Environment.name.asc()), page_number = int(page), page_size = int(limit))
@@ -142,8 +138,6 @@ def update(id:str, details: CreateEnvironment, commons: dict = Depends(common_pa
     env.name = details.name
     env.description = details.description
     env.deleted=deleted
-    env.scan_start_time=details.scan_start_time
-    env.scan_terminate_time=details.scan_terminate_time
     env.group_id=details.group
     env.active=active
 

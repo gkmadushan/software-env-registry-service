@@ -1,4 +1,5 @@
 from io import StringIO
+from sys import version
 from sqlalchemy.sql.sqltypes import DateTime
 from sqlalchemy.exc import IntegrityError
 from starlette.responses import Response
@@ -7,7 +8,7 @@ from dependencies import common_params, get_db, get_secret_random
 from schemas import CreateEnvironment, CreateResource, TestResource
 from sqlalchemy.orm import Session
 from typing import Optional
-from models import Environment, Resource, ResourceType
+from models import Environment, Resource, ResourceType, O
 from dependencies import get_token_header
 import uuid
 from datetime import datetime, timedelta
@@ -28,6 +29,7 @@ import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import subprocess
+import re
 
 
 page_size = os.getenv('PAGE_SIZE')
@@ -42,12 +44,22 @@ router = APIRouter(
 )
 
 @router.post("/connection-test")
-def test(details: TestResource):
+def test(details: TestResource, db: Session = Depends(get_db)):
     client = paramiko.SSHClient()
     response = {}
     try:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(details.ipv4,username=details.console_username, password=details.password, port=details.port)        
+        client.connect(details.ipv4,username=details.console_username, password=details.password, port=details.port) 
+        stdin,stdout,stderr=client.exec_command('cat /etc/*-release')  
+        distro_info = str(stdout.read())
+        oslist = db.query(O).all()
+        osname = 'unknown'
+        for os in oslist:
+            if re.search(os.os, distro_info, re.IGNORECASE):
+                osname = os.os
+                break        
+
+        return {'osname':osname}       
     except (socket.error, paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -67,9 +79,11 @@ def create(details: CreateResource, commons: dict = Depends(common_params), db: 
     try:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(details.ipv4, username=details.console_username, password=details.password, port=details.port)        
+
     except (socket.error, paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException) as e:
-        raise HTTPException(status_code=422, detail=str(e))    
-    
+        raise HTTPException(status_code=422, detail=str(e))  
+
+   
     try:
         key = paramiko.RSAKey.generate(2048)
         key.write_private_key(key_iostring)
@@ -110,7 +124,8 @@ def create(details: CreateResource, commons: dict = Depends(common_params), db: 
         console_username=details.console_username,
         console_secret_id=secret_id,
         port=details.port,
-        protocol=protocol
+        protocol=protocol,
+        os=details.os
     )    
 
     #commiting data to db
@@ -153,7 +168,11 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
         Resource.ipv4,
         Resource.ipv6,
         Environment.name.label('environment'),
-        ResourceType.name.label('resource_type')
+        ResourceType.name.label('resource_type'),
+        Resource.console_username,
+        Resource.console_secret_id,
+        Resource.port,
+        Resource.os
     )
 
     query, pagination = apply_pagination(query.join(Resource.environment).join(Resource.resource_type).where(and_(*filters)).order_by(Resource.name.asc()), page_number = int(page), page_size = int(limit))
@@ -205,6 +224,19 @@ def delete_by_id(id: str, commons: dict = Depends(common_params), db: Session = 
     return Response(status_code=204)
 
 
+@router.get("/os")
+def get_by_filter(db: Session = Depends(get_db)):
+    os = db.query(O).all()
+
+    response = {
+        "data": os
+    }
+
+    return response
+
+
+
+
 @router.get("/{id}")
 def get_by_id(id: str, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
     resource = db.query(Resource).get(id.strip())
@@ -242,6 +274,7 @@ def update(id:str, details: CreateResource, commons: dict = Depends(common_param
     resource.console_secret_id=details.password
     resource.port=details.port
     resource.protocol=details.protocol
+    resource.os=details.os
 
 
     #commiting data to db
@@ -254,5 +287,4 @@ def update(id:str, details: CreateResource, commons: dict = Depends(common_param
     return {
         "success": True
     }
-
 

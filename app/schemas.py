@@ -7,8 +7,6 @@ class CreateEnvironment(BaseModel):
     name: str
     description: str
     deleted: bool
-    scan_start_time: time
-    scan_terminate_time: time
     group: str
     active: bool
 
@@ -23,6 +21,7 @@ class CreateResource(BaseModel):
     port: int
     protocol: str
     name: str
+    os: str
     active: bool
 
 class TestResource(BaseModel):    
