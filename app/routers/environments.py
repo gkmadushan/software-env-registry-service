@@ -27,11 +27,12 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+
 @router.post("")
 def create(details: CreateEnvironment, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
-    #generate token
+    # generate token
     id = details.id or uuid.uuid4().hex
-    if details.deleted==True:
+    if details.deleted == True:
         deleted = 1
     else:
         deleted = 0
@@ -40,7 +41,7 @@ def create(details: CreateEnvironment, commons: dict = Depends(common_params), d
         active = 1
     else:
         active = 0
-    #Set user entity
+    # Set user entity
     env = Environment(
         id=id,
         name=details.name,
@@ -48,9 +49,9 @@ def create(details: CreateEnvironment, commons: dict = Depends(common_params), d
         deleted=deleted,
         group_id=details.group,
         active=active
-    )    
+    )
 
-    #commiting data to db
+    # commiting data to db
     try:
         db.add(env)
         db.commit()
@@ -61,21 +62,22 @@ def create(details: CreateEnvironment, commons: dict = Depends(common_params), d
         "success": True
     }
 
+
 @router.get("")
 def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, commons: dict = Depends(common_params), db: Session = Depends(get_db), id: Optional[str] = None, name: Optional[str] = None, group: Optional[str] = None, status: Optional[bool] = None):
     filters = []
 
-    filters.append(Environment.deleted==0)
+    filters.append(Environment.deleted == 0)
 
     if(name):
         filters.append(Environment.name.ilike(name+'%'))
 
     if(group):
-        filters.append(Environment.group_id==group)
+        filters.append(Environment.group_id == group)
 
-    if(status==True):
-        filters.append(Environment.active==1)
-    
+    if(status == True):
+        filters.append(Environment.active == 1)
+
     # if(status==False):
     #     filters.append(Environment.active==0)
 
@@ -86,11 +88,12 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
         case((Environment.active == 1, 'Yes'), (Environment.active == 0, 'No')).label('active')
     )
 
-    query, pagination = apply_pagination(query.where(and_(*filters)).order_by(Environment.name.asc()), page_number = int(page), page_size = int(limit))
+    query, pagination = apply_pagination(query.where(
+        and_(*filters)).order_by(Environment.name.asc()), page_number=int(page), page_size=int(limit))
 
     response = {
         "data": query.all(),
-        "meta":{
+        "meta": {
             "total_records": pagination.total_results,
             "limit": pagination.page_size,
             "num_pages": pagination.num_pages,
@@ -100,13 +103,17 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
 
     return response
 
+
 @router.delete("/{id}")
-def delete_by_id(id: str, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
+def delete_by_id(id: str, force: bool = False, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
     env = db.query(Environment).get(id.strip())
-    env.deleted = 1
-    # db.delete(env)
-    db.add(env)
-    db.commit()
+    if force:
+        db.delete(env)
+        db.commit()
+    else:
+        env.deleted = 1
+        db.add(env)
+        db.commit()
     return Response(status_code=204)
 
 
@@ -120,12 +127,13 @@ def get_by_id(id: str, commons: dict = Depends(common_params), db: Session = Dep
     }
     return response
 
+
 @router.put("/{id}")
-def update(id:str, details: CreateEnvironment, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
-    #Set user entity
+def update(id: str, details: CreateEnvironment, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
+    # Set user entity
     env = db.query(Environment).get(id)
 
-    if details.deleted==True:
+    if details.deleted == True:
         deleted = 1
     else:
         deleted = 0
@@ -137,11 +145,11 @@ def update(id:str, details: CreateEnvironment, commons: dict = Depends(common_pa
 
     env.name = details.name
     env.description = details.description
-    env.deleted=deleted
-    env.group_id=details.group
-    env.active=active
+    env.deleted = deleted
+    env.group_id = details.group
+    env.active = active
 
-    #commiting data to db
+    # commiting data to db
     try:
         db.add(env)
         db.commit()

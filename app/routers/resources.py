@@ -146,6 +146,8 @@ def get_by_filter(page: Optional[str] = 1, limit: Optional[int] = page_size, com
 
     if(name):
         filters.append(Resource.name.ilike(name+'%'))
+    else:
+        filters.append(Resource.name.ilike('%'))
 
     if(environment):
         filters.append(Resource.environment_id == environment)
@@ -248,7 +250,7 @@ def get_by_id(id: str, commons: dict = Depends(common_params), db: Session = Dep
         Resource.console_secret_id, Resource.port, Resource.active, Resource.resource_type_id,
         Resource.console_username, Resource.protocol, Resource.os,
         Environment.group_id.label('access_group')).join(Resource.environment).filter(Resource.id == id.strip())
-    if query == None:
+    if query.count() == 0:
         raise HTTPException(status_code=404, detail="Item not found")
     response = {
         "data": query.first()
