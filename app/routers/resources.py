@@ -64,8 +64,6 @@ def test(details: TestResource, db: Session = Depends(get_db)):
     except (socket.error, paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    return Response(status_code=204)
-
 
 @router.post("")
 def create(details: CreateResource, commons: dict = Depends(common_params), db: Session = Depends(get_db)):
